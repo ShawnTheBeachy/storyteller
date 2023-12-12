@@ -19,7 +19,7 @@
 
 .current-sentence {
     color: #f8fafc;
-    font-weight: 100;
+    /*font-weight: 100;*/
 }
 
 #gradient {
@@ -50,7 +50,7 @@ p {
     font-family: "Adobe Jenson Pro", serif;
     font-size: 300%;
     hyphens: auto;
-    margin: 0;
+    margin: 0 0 1rem;
     max-width: 75rem;
     padding-left: 2rem;
     padding-right: 2rem;

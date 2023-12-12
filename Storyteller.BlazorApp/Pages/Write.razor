@@ -7,13 +7,39 @@
      tabindex="0">
     <div class="canvas">
         <div id="gradient"></div>
-        <p>
-            <span class="previous-sentence">
-                @PreviousSentences
-            </span>
-            <span class="current-sentence">
-                @CurrentSentence
-            </span><span class="caret">&nbsp;</span>
-        </p>
+        @{
+            var previousParagraphs = PreviousSentences.Split('\n');
+            var isCurrentSentenceNewParagraph = previousParagraphs[^1].Length == 0;
+        }
+        @for (var i = 0; i < previousParagraphs.Length; i++)
+        {
+            if (previousParagraphs[i].Length <= 0)
+            {
+                continue;
+            }
+
+            <p class="previous-sentence">
+                <span>
+                    @previousParagraphs[i]
+                </span>
+
+                @if (!isCurrentSentenceNewParagraph && i == previousParagraphs.Length - 1)
+                {
+                    <span class="current-sentence">
+                        @CurrentSentence
+                    </span>
+                    <span class="caret">&nbsp;</span>
+                }
+            </p>
+        }
+
+        @if (isCurrentSentenceNewParagraph)
+        {
+            <p class="current-sentence">
+                <span>
+                    @CurrentSentence
+                </span><span class="caret">&nbsp;</span>
+            </p>
+        }
     </div>
 </div>
