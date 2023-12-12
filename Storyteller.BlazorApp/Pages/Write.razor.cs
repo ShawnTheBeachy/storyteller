@@ -35,6 +35,10 @@ public sealed partial class Write
     protected override async Task OnInitializedAsync()
     {
         AllText = await LocalStorage.GetItemAsStringAsync("text") ?? "";
+
+        if (AllText.Length > 0 && AllText[^1] != ' ')
+            AllText += ' ';
+
         _currentSentenceStart = AllText.Length;
     }
 
