@@ -1,0 +1,19 @@
+﻿@page "/"
+
+<div class="container"
+     @onblur="@OnContainerBlurred"
+     @onkeydown="@OnKeyDown"
+     @ref="@_containerRef"
+     tabindex="0">
+    <div class="canvas">
+        <div id="gradient"></div>
+        <p>
+            <span class="previous-sentence">
+                @PreviousSentences
+            </span>
+            <span class="current-sentence">
+                @CurrentSentence
+            </span><span class="caret">&nbsp;</span>
+        </p>
+    </div>
+</div>
