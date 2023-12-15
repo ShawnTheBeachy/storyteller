@@ -1,6 +1,7 @@
 ﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Storyteller.BlazorApp.KeyHandlers;
 
 namespace Storyteller.BlazorApp.Pages;
 
@@ -8,7 +9,8 @@ public sealed partial class Write
 {
     private ElementReference _containerRef;
     private int _currentSentenceStart;
-    private bool _isSentenceComplete;
+    private readonly List<KeyHandlerBase> _keyHandlers = new();
+    private const string StorageKey = "text";
 
     private string AllText { get; set; } = "";
 
@@ -34,132 +36,48 @@ public sealed partial class Write
 
     protected override async Task OnInitializedAsync()
     {
-        AllText = await LocalStorage.GetItemAsStringAsync("text") ?? "";
-
-        if (AllText.Length > 0 && AllText[^1] != ' ')
-            AllText += ' ';
-
-        _currentSentenceStart = AllText.Length;
+        AllText = await LocalStorage.GetItemAsStringAsync(StorageKey) ?? "";
+        _currentSentenceStart = AllText.FindLastSentenceStart();
+        RegisterKeyHandlers();
     }
 
     private async Task OnKeyDown(KeyboardEventArgs args)
     {
-        switch (args.Key)
+        foreach (var handler in _keyHandlers)
         {
-            case "!"
-            or "?"
-            or "." when args is { CtrlKey: false, AltKey: false, MetaKey: false }:
-                Punctuate();
-                break;
-            case "Enter":
-                NewLine();
-                break;
-            case "Backspace":
-                Backspace();
-                break;
-            case "Delete"
-                when args is { CtrlKey: true, AltKey: false, MetaKey: false, ShiftKey: false }:
-                Clear();
-                break;
-            case " " when args is { CtrlKey: false, AltKey: false, MetaKey: false }:
-                HandleSpace();
-                break;
-            case "c" when args is { CtrlKey: true, AltKey: false, MetaKey: false, ShiftKey: false }:
-                await Copy();
-                break;
-            case "v" when args is { CtrlKey: true, AltKey: false, MetaKey: false, ShiftKey: false }:
-                await Paste();
-                break;
-            default:
-            {
-                if (
-                    args.Key.Length != 1
-                    || args is not { CtrlKey: false, AltKey: false, MetaKey: false }
-                )
-                    return;
+            var handled = handler is AsyncKeyHandlerBase asyncHandler
+                ? await asyncHandler.OnKeyAsync(args)
+                : handler.OnKey(args);
 
-                if (_isSentenceComplete)
-                {
-                    AllText += ' ';
-                    StartNewSentence();
-                }
-
-                AllText += args.Key;
+            if (handled)
                 break;
-            }
         }
 
-        await LocalStorage.SetItemAsStringAsync("text", AllText);
-        return;
+        await LocalStorage.SetItemAsStringAsync(StorageKey, AllText);
+    }
 
-        void Backspace()
+    private void RegisterKeyHandlers()
+    {
+        var args = new KeyHandlerArgs(
+            () => AllText,
+            text => AllText = text,
+            () => _currentSentenceStart,
+            index => _currentSentenceStart = index
+        );
+
+        var handlers = new KeyHandlerBase[]
         {
-            if (
-                _currentSentenceStart >= AllText.Length
-                && (AllText.Length == 0 || AllText[^1] != '\n')
-            )
-                return;
+            new BackspaceHandler(args),
+            new ClearAllTextHandler(args),
+            new CopyHandler(Clipboard, args),
+            new NewLineHandler(args),
+            new PasteHandler(Clipboard, args),
+            new PunctuationHandler(args),
+            new SpaceHandler(args),
+            new DefaultKeyHandler(args)
+        };
 
-            AllText = AllText[..^1];
-            _isSentenceComplete = false;
-            _currentSentenceStart = Math.Min(_currentSentenceStart, AllText.Length);
-        }
-
-        void Clear()
-        {
-            _currentSentenceStart = 0;
-            _isSentenceComplete = false;
-            AllText = "";
-        }
-
-        ValueTask Copy() => Clipboard.WriteTextAsync(AllText);
-
-        void HandleSpace()
-        {
-            if (!_isSentenceComplete && _currentSentenceStart < AllText.Length)
-                AllText += ' ';
-        }
-
-        bool IsSentenceTerminator(char c) => c is '!' or '?' or '.' or '\n';
-
-        void NewLine()
-        {
-            AllText = AllText.TrimEnd() + '\n';
-            StartNewSentence();
-        }
-
-        async ValueTask Paste()
-        {
-            AllText += await Clipboard.ReadTextAsync();
-
-            for (var i = AllText.Length - 1; i > 0; i--)
-            {
-                if (!IsSentenceTerminator(AllText[i]))
-                    continue;
-
-                _currentSentenceStart =
-                    i
-                    + (
-                        i < AllText.Length - 1 && (AllText[i + 1] == ' ' || AllText[i + 1] == '\n')
-                            ? 2
-                            : 1
-                    );
-                return;
-            }
-
-            _currentSentenceStart = 0;
-        }
-
-        void Punctuate()
-        {
-            AllText += args.Key;
-            _isSentenceComplete = true;
-        }
-
-        void StartNewSentence()
-        {
-            _isSentenceComplete = false;
-            _currentSentenceStart = AllText.Length;
-        }
+        foreach (var handler in handlers)
+            _keyHandlers.Add(handler);
     }
 }
